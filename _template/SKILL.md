@@ -1,26 +1,28 @@
 ---
 name: skill-name-here
 description: >-
-  第一句写触发场景："Use when ..."（什么情况下该想起这个 skill）。后面一两句说明它
-  做什么、产出什么。这段文字是 Claude 决定要不要加载此 skill 的唯一依据。
+  Open with the trigger: "Use when ..." (the situations in which this skill should come
+  to mind). Follow with one or two sentences on what it does and what it produces. This
+  text is the only thing Claude reads when deciding whether to load the skill.
 ---
 
-# 标题：一句话说清这个 skill 做什么
+# Title: one sentence saying what this skill does
 
-## 什么时候用 / 不要用
+## When to use / when not to
 
-- 用：……
-- 不要用：……（边界写清楚，误触发比不触发更烦）
+- Use when: ...
+- Do not use when: ... (draw the boundary - a skill that fires wrongly is worse than one
+  that never fires)
 
-## 步骤
+## Steps
 
-1. ……
-2. ……
+1. ...
+2. ...
 
-## 陷阱（每条最好对应一次真实教训）
+## Traps (each one should correspond to a real lesson learned)
 
-- ……
+- ...
 
-## 配套资源
+## Supporting resources
 
-- `scripts/xxx.py`：……
+- `scripts/xxx.py`: ...
