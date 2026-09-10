@@ -92,6 +92,12 @@ grep -rn "<名字>" --include=*.cs --include=*.md .    # 所有读者，包括�
 - 描述回退/跳过行为的句子（"skips any row already populated"）；
 - `<paramref>`、`<see cref>` 指向已改名的东西；
 - 文档里的范围、默认值和校验器是否一致（cookbook 说 0–100，校验器要求 ≥1）。
+- **说"某个门/夹具覆盖了 X"的句子**：打开那个门的 csproj / 配置看它到底跑在哪个目标上。
+  "parity gates run the same fixtures against both targets"——DiffAcoParity 只有 `net8.0`。
+- **说"生产环境走的是 Y 不是 X"的句子**：集成之后重读。README 写"production sidesteps
+  AntennaLookup"时适配器还没接进来，接进来之后 `DiffAcoAdapter` 就在 new AntennaLookup。
+- **让 agent "先问用户再做"的指令**：surface 上必须有一个字段能判断那个条件。"Ask the user
+  before promoting if the project has one"——DTO 里没有任何字段区分向导自己的配置和脚本建的。
 
 ### 6. 维护类扫描（变异测试到不了的维度）
 
@@ -107,6 +113,22 @@ grep -rn "<名字>" --include=*.cs --include=*.md .    # 所有读者，包括�
 - **可观测性**：新缓存、新阈值、新拒绝有没有一行日志或计数说明它起了作用、代价多少。
 - **编译外的一致性**：BOM + CRLF、16 行版权头、`InternalsVisibleTo`、每个动过的程序集
   的测试都跑过（`git diff --name-only` 按程序集分组）。
+- **发布点之后的折叠**：gate 脚本 / 报表里每个 `Output(outcome)`、`Publish`、`Save` 之后
+  还有没有往 outcome 里折叠的检查。往脚本里追加检查时先找发布点，追加在它上面；同目录
+  兄弟脚本的顺序就是规范（`run-and-apply-optimisation.cs` 对，`list-optimisation-configs.cs` 错）。
+- **同一个值的第二份字段**：`Route2iSinrInputs.NoiseFloorDbm` 与 `SinrHead` 里的 floor。
+  信号是"默认值恰好等于刚删掉的硬编码常量（-95）"。修法是删掉第二份、从持有者读，不是加校验。
+- **循环体里不依赖循环变量的重算**：闭包每次迭代调用、但只依赖外层状态的表（ChannelSweep
+  的 G 只依赖 rsrp/universe/active）。提出去按 key 缓存，缓存要有上界，并说明是部分缓解。
+- **并行数组的长度守卫**：按 stride 索引的数组（`allowed[cell * channels + v]`）错长度不会越界、
+  只会静默读到别的行；入口处按 `cells * nChannels` 校验，测试用错一格的长度。
+- **只在构造函数里赋值的字段**：`grep -n "_name = "` 对比读取次数；`_cells` 这类编译器不报。
+- **宽泛的 `except Exception`**：看被吞掉的类型里有没有上游刻意设为致命的（`DomainScopeError`），
+  只捕获"尚未生成"那一类。
+- **删凭据文件时 grep 同一个值**：`.nuget/NuGet.Config` 删了，`ContinuousIntegration/NuGet.Config`
+  还带同一个 key 和 PAT；注释里"不把秘密写回仓库"就成了假话。跨系统的那份回复说明 + 记 owner 动作。
+- **场景元数据的跨域副作用**：`scenarios.yaml` 的 `commands:` 列表决定它进哪个域的 pass；
+  把顺带的读命令声明上去会把优化场景算进 Annotation 的 N。
 
 ### 7. 产出：一张评审表，不是一句"我检查过了"
 
@@ -174,6 +196,15 @@ grep -rn "<名字>" --include=*.cs --include=*.md .    # 所有读者，包括�
 - `Assert.Catch<Exception>` 之后写 `outcome == null ||`：永远真的断言。
 - 把 `arrays.npz` 建成目录来"制造失败"：`File.Exists` 对目录为假，回滚路径从未进入。
 - 评审标 MAJOR 的 `Equals` 没有任何调用方：加固它是扩展，删掉它才是修复。
+- Bing Xia 轮（12 条）里两条是前几轮修复带出来的：往 gate 脚本追加检查时没找发布点，五个
+  检查折叠在 `Output(outcome)` 之后，域里唯一的 Correctness gate 五个断言失败也报 PASS
+  （BLOCKER）；上一轮给 promote 加的"项目已有配置就先问"是一句 surface 上无法判断的指令。
+  两条的共同点：改的是文本（脚本尾部、doc 里的一句话），没有回头看这段文本依赖的机制。
+- 同一轮，评审引用 README 说"production 走 AntennaPatternInterpolator"要我照抄进注释：
+  去代码里核，`DiffAcoAdapter.cs:305` 在 new AntennaLookup。评审也会被过时文档带偏，改注释
+  前先 grep 代码，再把 README 一起改，否则下一轮就是"注释和 README 矛盾"。
+- 修复脚本用 bash heredoc 写 Python 时 `\\n` 被解成真换行、`'` 让 heredoc 提前结束：多行
+  文件用 Write 工具，不用 heredoc。
 
 ## 相关
 
