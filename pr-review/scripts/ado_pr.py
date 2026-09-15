@@ -6,6 +6,7 @@
     python ado_pr.py reply <prId> replies.json [--dry] reply into existing threads, optionally set status
     python ado_pr.py create <source> <target> pr.json [--dry]  open a pull request
     python ado_pr.py resolve <prId> <threadId>... [--dry]      mark threads Resolved (status fixed), no comment
+    python ado_pr.py requeue <prId> [--dry]                    re-queue the PR's build policy (the Re-queue button)
 
 pr.json:       {"title": "...", "description": "...", "work_items": [117314]}
                work_items is optional; each id is linked to the new PR.
@@ -132,6 +133,29 @@ def resolve(pr_id, thread_ids, dry):
         print("RESOLVED", thread_id)
 
 
+def requeue(pr_id, dry):
+    """Re-queue the pull request's build validation - what the Re-queue button does.
+
+    For a validation build that failed on the agent rather than on the change (a file lock in
+    a shared test output directory, an agent restart), not for a red test the change caused.
+    Finds the Build policy evaluation for the PR and sets it back to queued.
+    """
+    project = call("GET", f"{ORG}/_apis/projects/{PROJECT}?api-version=7.1", None)["id"]
+    evaluations = call("GET", f"{ORG}/{PROJECT}/_apis/policy/evaluations"
+                              f"?artifactId=vstfs:///CodeReview/CodeReviewId/{project}/{pr_id}&api-version=7.1-preview.1", None)["value"]
+    builds = [e for e in evaluations if e["configuration"]["type"]["displayName"] == "Build"]
+    if not builds:
+        sys.exit(f"PR {pr_id} has no build policy to re-queue.")
+    for evaluation in builds:
+        previous = (evaluation.get("context") or {}).get("buildId")
+        if dry:
+            print("DRY requeue", evaluation["evaluationId"], "status", evaluation["status"], "build", previous)
+            continue
+        result = call("PATCH", f"{ORG}/{PROJECT}/_apis/policy/evaluations/{evaluation['evaluationId']}?api-version=7.1-preview.1",
+                      {"status": "queued"})
+        print("REQUEUED", evaluation["evaluationId"], "was build", previous, "now build", (result.get("context") or {}).get("buildId"))
+
+
 def create(source, target, path, dry):
     """Open a pull request from one branch to another.
 
@@ -193,5 +217,7 @@ if __name__ == "__main__":
         create(sys.argv[2], sys.argv[3], sys.argv[4], dry)
     elif command == "resolve":
         resolve(pr, [a for a in sys.argv[3:] if a != "--dry"], dry)
+    elif command == "requeue":
+        requeue(pr, dry)
     else:
         sys.exit(__doc__)
