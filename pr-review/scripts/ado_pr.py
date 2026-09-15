@@ -4,6 +4,10 @@
     python ado_pr.py fetch <prId>                     print title, branches, description, every thread
     python ado_pr.py post  <prId> threads.json [--dry] open inline threads (and a summary thread)
     python ado_pr.py reply <prId> replies.json [--dry] reply into existing threads, optionally set status
+    python ado_pr.py create <source> <target> pr.json [--dry]  open a pull request
+
+pr.json:       {"title": "...", "description": "...", "work_items": [117314]}
+               work_items is optional; each id is linked to the new PR.
 
 threads.json:  [{"file": "/iBuilding/path/File.cs", "line": 44, "content": "..."},
                 {"file": null, "content": "## Review summary ..."}]
@@ -110,6 +114,52 @@ def reply(pr_id, path, dry):
         print("REPLIED", thread_id, item.get("status") or "")
 
 
+def create(source, target, path, dry):
+    """Open a pull request from one branch to another.
+
+    Branch names are given bare ("Task117314"); the refs/heads/ prefix the API wants is
+    added here, because getting it wrong is answered with a 404 that names neither branch.
+    """
+    spec = json.load(open(path, encoding="utf-8"))
+    body = {
+        "sourceRefName": "refs/heads/" + source.replace("refs/heads/", ""),
+        "targetRefName": "refs/heads/" + target.replace("refs/heads/", ""),
+        "title": spec["title"],
+        "description": spec.get("description", ""),
+    }
+    if dry:
+        print("DRY create", body["sourceRefName"], "->", body["targetRefName"])
+        print(" title:", body["title"])
+        print(" description:", str(body["description"])[:300])
+        print(" work items:", spec.get("work_items") or "none")
+        return
+
+    url = f"{ORG}/{PROJECT}/_apis/git/repositories/{REPO}/pullrequests?api-version=7.1"
+    pr = call("POST", url, body)
+    pr_id = pr["pullRequestId"]
+    print("CREATED PR", pr_id)
+    print(f"{ORG}/{PROJECT}/_git/{REPO}/pullrequest/{pr_id}")
+
+    for work_item in spec.get("work_items") or []:
+        # The link lives on the WORK ITEM, not on the PR, and its url carries the project
+        # and repository GUIDs - which the PR itself reports as artifactId, so it is read
+        # from there rather than assembled.
+        patch = [{"op": "add", "path": "/relations/-", "value": {
+            "rel": "ArtifactLink",
+            "url": pr["artifactId"],
+            "attributes": {"name": "Pull Request"},
+        }}]
+        auth = base64.b64encode((":" + pat()).encode()).decode()
+        request = urllib.request.Request(
+            f"{ORG}/{PROJECT}/_apis/wit/workitems/{work_item}?api-version=7.1",
+            data=json.dumps(patch).encode("utf-8"),
+            headers={"Authorization": "Basic " + auth,
+                     "Content-Type": "application/json-patch+json"},
+            method="PATCH")
+        with urllib.request.urlopen(request):
+            print("LINKED work item", work_item)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -121,5 +171,7 @@ if __name__ == "__main__":
         post(pr, sys.argv[3], dry)
     elif command == "reply":
         reply(pr, sys.argv[3], dry)
+    elif command == "create":
+        create(sys.argv[2], sys.argv[3], sys.argv[4], dry)
     else:
         sys.exit(__doc__)
