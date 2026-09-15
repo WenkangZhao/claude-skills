@@ -142,5 +142,7 @@ Reviewed against merge base <sha>, all N files, with the callers behind them: <�
 
 ## 支持资源
 
-- `scripts/ado_pr.py`：`fetch` / `post` / `reply`，PAT 与组织地址见文件头。
+- `scripts/ado_pr.py`：`fetch` / `post` / `reply` / `create` / `resolve`，PAT 与组织地址见文件头。
+  `resolve <pr> <thread>...` 把线程置为 `fixed`（ADO 界面上的 Resolved）；作者只对不可争议、
+  已照做的评论用它，见 `pr-self-review` 第 7 条。
 - `pr-self-review`：同一套眼光用在自己的 PR 上，以及收到评论后怎么分档、怎么修不越界。

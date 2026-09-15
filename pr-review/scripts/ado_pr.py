@@ -5,6 +5,7 @@
     python ado_pr.py post  <prId> threads.json [--dry] open inline threads (and a summary thread)
     python ado_pr.py reply <prId> replies.json [--dry] reply into existing threads, optionally set status
     python ado_pr.py create <source> <target> pr.json [--dry]  open a pull request
+    python ado_pr.py resolve <prId> <threadId>... [--dry]      mark threads Resolved (status fixed), no comment
 
 pr.json:       {"title": "...", "description": "...", "work_items": [117314]}
                work_items is optional; each id is linked to the new PR.
@@ -114,6 +115,23 @@ def reply(pr_id, path, dry):
         print("REPLIED", thread_id, item.get("status") or "")
 
 
+def resolve(pr_id, thread_ids, dry):
+    """Mark threads Resolved without adding a comment.
+
+    ADO shows status `fixed` as "Resolved". For the author this is only for comments that
+    were not debatable - a wording, a brace, a doc correction, a fix done exactly as the
+    reviewer wrote it - and have been replied to; anything with a judgement in it stays
+    active for the reviewer to close.
+    """
+    for thread_id in thread_ids:
+        if dry:
+            print("DRY resolve", thread_id)
+            continue
+        call("PATCH", base(pr_id) + f"/threads/{thread_id}?api-version=7.1",
+             {"status": STATUS_CODES["fixed"]})
+        print("RESOLVED", thread_id)
+
+
 def create(source, target, path, dry):
     """Open a pull request from one branch to another.
 
@@ -173,5 +191,7 @@ if __name__ == "__main__":
         reply(pr, sys.argv[3], dry)
     elif command == "create":
         create(sys.argv[2], sys.argv[3], sys.argv[4], dry)
+    elif command == "resolve":
+        resolve(pr, [a for a in sys.argv[3:] if a != "--dry"], dry)
     else:
         sys.exit(__doc__)
