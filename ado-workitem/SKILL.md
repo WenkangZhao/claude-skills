@@ -126,6 +126,8 @@ board saying something that is not true.
 
 - `scripts/ado_status.py` - every active PR with its open-thread count, validation build and
   attached work items. Read-only; `--all`, `--no-build` and `--json` available.
+- `scripts/ado_wi_edit.py` - rewrite an item's title and/or description in place, the
+  description read from an HTML file so it never crosses a shell quote. `--dry` prints the patch.
 - `scripts/ado_wi.py` - `show` / `children` / `find` / `create` / `link-pr` / `state`.
   Organisation, project and repository come from `ADO_ORG_URL` / `ADO_PROJECT` /
   `ADO_REPO`; the PAT from `AZURE_DEVOPS_PAT` or the iBuildNet settings file. Every
