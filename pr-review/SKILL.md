@@ -5,10 +5,13 @@ description: >-
   review 一下这个 PR", "按高级工程师的标准 review", "inline comment"), or to re-review a PR
   after fixes, even if they only paste the link. Pulls the PR, its description and existing
   threads from ADO, reads the WHOLE diff against the merge base plus the callers behind it,
-  verifies every candidate finding against source (never against the description), posts
-  inline threads in the team's severity format (🔴 BLOCKER / 🟠 CRITICAL / 🟡 MAJOR /
-  🔵 MINOR, evidence with file:line, failure scenario, fix) and one summary thread with a
-  verdict table and a "checked and sound" section. Never duplicates an existing thread.
+  verifies every candidate finding against source (never against the description), and posts
+  inline threads plus one summary thread with a verdict table and a "checked and sound"
+  section. The binding standard for every review is REVIEW.md next to this skill: the
+  five-tier severity schema (🔴 BLOCKER / 🟠 CRITICAL / 🟡 MAJOR / 🔵 MINOR / 🟢 NIT) and
+  the exclusion rules come from there and are read before the first comment is written; the
+  threads themselves keep the team's existing shape (evidence with file:line, failure
+  scenario, fix). Never duplicates an existing thread.
 ---
 
 # 审别人的 PR
@@ -23,6 +26,24 @@ description: >-
 
 产出的是**能被核实的发现**，不是印象。每条发现都带：在哪（file:line）、为什么错（引用
 代码，不引用描述）、什么输入会出什么错、怎么修。写不出失败场景的不发。
+
+## 评审标准：REVIEW.md（强制）
+
+这个技能一触发，**先读 `REVIEW.md`（与本文件同目录）再动手**，整轮 review 按它执行。
+它规定两件事，本文件不重复、也不得与之冲突：
+
+1. **五档定级**（🔴 BLOCKER / 🟠 CRITICAL / 🟡 MAJOR / 🔵 MINOR / 🟢 NIT）及每档的触发场景；
+2. **排除清单**——linter 能管的格式、`dist/`·`build/`·`generated/` 与 lockfile、测试文件
+   （只在测试本身算错或不稳定时才提）。
+
+**一处例外：评论的排版用第 6 步的团队格式**，不用 REVIEW.md 第 3 节那套
+`Root Cause & Risk` / `Refactoring Plan` 排版——我们 PR 上已有的线程都是第 6 步的样子，
+作者和后续评审按那个读。第 3 节要求的三样东西（为什么错、边界下怎么一步步失败、可直接
+用的修法）一样不少，只是落在 Evidence / Failure scenario / Fix 三栏里。
+
+下面的步骤是**怎么做到**：怎么拉 PR、读到 diff 以外的调用者、把候选发现核实成能复现的
+失败场景、发线程。REVIEW.md 的角色与语气要求（不说客套话、只找运行期故障、安全泄漏、
+边界回归、架构侵蚀）同样适用于口头 review。
 
 ## 步骤
 
@@ -81,19 +102,23 @@ git grep -n "<名字>" origin/<source> -- '*.cs'
 
 ### 5. 定级
 
-| 标记 | 含义 |
-|---|---|
-| 🔴 BLOCKER | 写坏用户数据、删用户对象、提交明确错误的结果 |
-| 🟠 CRITICAL | 错误答案或安全网失效，但不写坏数据；报表与计算不一致 |
-| 🟡 MAJOR | 真问题影响有限；测试撤掉修复不会红；文档与代码矛盾且被模型/用户直接读 |
-| 🔵 MINOR | 措辞、注释漂移、产品不可达的陷阱、纯 API 洁癖 |
+档位定义以 `REVIEW.md` 第 1 节为准（五档，不得自造别的标签）。下面是它在本仓库的具体落点：
+
+| 标记 | REVIEW.md 定义 | 本仓库的典型情形 |
+|---|---|---|
+| 🔴 BLOCKER | 线上崩溃、数据安全、不可回滚 | 写坏用户数据、删用户对象、提交明确错误的结果 |
+| 🟠 CRITICAL | 业务逻辑确实错、错误状态被持久化、边界被忽略 | 错误答案或安全网失效但不写坏数据；报表与计算不一致 |
+| 🟡 MAJOR | 架构与性能违规、可维护性债 | 真问题但影响有限；测试撤掉修复不会红；文档与代码矛盾且被模型/用户直接读 |
+| 🔵 MINOR | 坏味道、冗余、可读性 | 措辞、注释漂移、产品不可达的陷阱、纯 API 洁癖 |
+| 🟢 NIT | 纯风格与约定 | **inline 最多 5 条**，超出的只在总结里报个数 |
 
 潜在（无调用方）、产品不可达、历史遗留：**降级并明说**。标高了作者会全修，改动面一大
-下一轮更多。
+下一轮更多。REVIEW.md 第 2 节排除掉的东西（linter 管的格式、生成物与 lockfile、测试里的
+硬编码夹具）一律不发。
 
 ### 6. 发评论
 
-每条 inline 线程的格式（团队已用的样式）：
+每条 inline 线程的格式（团队已用的样式，不改）：
 
 ```
 **🟠 CRITICAL — 一句话说清缺陷。**
@@ -104,6 +129,9 @@ git grep -n "<名字>" origin/<source> -- '*.cs'
 
 **Fix.** 最小修法；需要的测试一句话。
 ```
+
+标记用 REVIEW.md 的五档；Evidence 的 file:line 与 Failure scenario 是硬要求——这是发现
+能被核实的唯一凭据，写不出来的候选按第 3 步丢掉。Fix 要能直接用，必要时贴出改后的那几行。
 
 ```
 python scripts/ado_pr.py post <prId> threads.json --dry   # 先看锚点和长度
@@ -117,7 +145,7 @@ python scripts/ado_pr.py post <prId> threads.json
 
 ```
 ## Review summary
-**Verdict: approve / request changes.** N CRITICAL · N MAJOR · N MINOR；已有线程 X、Y 仍然成立不重复。
+**Verdict: approve / request changes.** N BLOCKER · N CRITICAL · N MAJOR · N MINOR · N NIT；已有线程 X、Y 仍然成立不重复。
 Reviewed against merge base <sha>, all N files, with the callers behind them: <关键调用方>.
 | # | Severity | Finding | Where |
 **Checked and sound.** 核过没问题的点（additive 改动、夹紧推理、容差共用、生命周期、pin 一致、BOM）。
@@ -125,6 +153,7 @@ Reviewed against merge base <sha>, all N files, with the callers behind them: <�
 ```
 
 "Checked and sound" 不是客套：它告诉作者哪些不用再自证，也让下一轮评审不重复核。
+NIT 超过 5 条时，inline 只发 5 条，剩下的在 verdict 那行计数即可。
 
 ### 8. 再审（第二轮及以后）
 
@@ -142,6 +171,8 @@ Reviewed against merge base <sha>, all N files, with the callers behind them: <�
 
 ## 支持资源
 
+- `REVIEW.md`：本技能的评审标准本体——五档定级与排除清单，每轮 review 开始前读，定级和
+  该不该提以它为准；评论排版按第 6 步的团队格式。
 - `scripts/ado_pr.py`：`fetch` / `post` / `reply` / `create` / `resolve`，PAT 与组织地址见文件头。
   `resolve <pr> <thread>...` 把线程置为 `fixed`（ADO 界面上的 Resolved）；作者只对不可争议、
   已照做的评论用它，见 `pr-self-review` 第 7 条。
