@@ -5,9 +5,11 @@ description: >-
   findings, a red CI, or a reopened thread. Also when the reviewer says a test does not exercise the
   change / only asserts that something was refused / stays green with the fix reverted; when the same
   defect turns out to be live at another call site, surface, DTO doc or cookbook part; when a file is
-  on its third round; or when the user asks "为什么改完又有新问题" / "是不是我们刚才的改动导致的" /
-  "怎么又是一堆 comment". Produces the four pre-edit artefacts a fix round needs, states what each kind
-  of green is worth, and says when to stop editing and write to the reviewer instead.
+  on its third round; **whenever you are about to write a comment, a commit line or a self-review row
+  that EXPLAINS why you took a shortcut**; or when the user asks "为什么改完又有新问题" /
+  "是不是我们刚才的改动导致的" / "怎么又是一堆 comment" / "每次改动你都会引入新的问题".
+  Produces the four pre-edit artefacts a fix round needs, states what each kind of green is worth,
+  and says when to stop editing and write to the reviewer instead.
 ---
 
 # 修评审意见,而不是把问题越修越多
@@ -93,6 +95,30 @@ grep -rn "<规则名/标识符/那句文案>" --include=*.cs --include=*.md .   
 
 ## 第二屏:改的时候
 
+### ⓪ 辩解句检查 —— 我写下的每一句理由,都是下一条 finding 的位置
+
+**一轮 4 条发现,3 条头上顶着我自己写的一句辩解。** 这不是"不够仔细",是一个有形状的动作:
+**一旦为某个折中写下理由,我就停止攻击它了**——而那句理由恰恰是下一条 finding 待的地方。
+
+| 我写下的辩解 | 它出现在哪 | 真相 | 后果 |
+|---|---|---|---|
+| "SystemTemplate 是唯一的 public 入口,字段名是 ASM 内部的" | **代码注释** | `TemplateFieldNames.SystemID` 是 `public const`,全库 18 处在用 | CRITICAL 515374 |
+| "前置读同样解析" | **提交信息** | 另一个门写的是 `?? building_name`,把缺陷原样装回去了 | BLOCKER 515370 |
+| "消息里两个都提了,所以是 NIT" | **自审表** | 那个答案修不好任何东西,还能被选第二次 | CRITICAL 515371 |
+| "这个目录里从来没有整数走过 chooser" | 差点写进注释 | `azimuth_deg` / `target_dbm` / `x,y,z` 都走过,`arg_baking.as_number` 就是为这个往返写的 | 结论碰巧对,理由是编的 |
+
+**规矩:凡是写下一句"为什么这样就行/为什么只能这样",立刻用一条命令去攻击它,不许记录完就走。**
+
+| 辩解的形状 | 攻击它的命令 |
+|---|---|
+| "只有这一条路 / 没有 public 的 X" | `grep -rn "X"` 整库。**一个编译错误只证明你试的那条不通,不证明没有别的路。** |
+| "另一处也是这样处理的" | `git diff` 两处,或 `sed -n` 把两边并排贴出来逐字比 |
+| "这个目录/仓库从来不 Y" | `grep -rhon 'Y' <目录> \| sort \| uniq -c` —— 让计数说话 |
+| "这个答案够用了" | 问一句:**用户照这个答案做一遍,请求会变得能通过吗?** 不能 = finding,不是 NIT |
+| "这样更安全所以加了 try/catch" | 去读被捕获的那个调用真的会不会抛。**兜底的代价常常比它防的事大**(这次那个 `catch` 什么都防不到,而它包住的那个 indexer 会往用户的模板库里**写**一条参数) |
+
+> 这条和第 ① 步的"第三轮就冻结"是一对:轮次账拦的是**改太多次**,辩解句检查拦的是**一次改得太自信**。
+
 ### 三条读法
 
 1. **作者读"我改的那条路通了吗",评审读"我没改的那些路现在怎样"。** 回归永远在你没想到的那条路上。
@@ -121,6 +147,13 @@ grep -rn "<规则名/标识符/那句文案>" --include=*.cs --include=*.md .   
    `rindex("if (…)")` 在 `else if (…)` 里**也命中**,所以还原成 `else if` 之后测试仍绿——要收紧成
    "它前面那个词不能是 else"。
 4. **断言贴着被测的块**,不要整文件否定断言(会咬到你自己解释用的注释)。
+5. **夹具/harness 打印出来的每一个字段都要断言,不许只挑自己关心的那个。**
+
+> 实测:我写的执行 harness 每个形态打印 `{problems, needs, regions}`,我只断言了 `problems` 和
+> `regions`。"对的楼、空的层"那一行**当场打印出 `needs:["building_name"]`**——证据就在屏幕上,
+> 测试全绿,评审把它提成了 CRITICAL(515371)。**打印了却不断言的字段,等于没测。**
+> 顺带:让 `Need` 桩连 options 一起吐出来(`arg + "=" + join(options)`),否则"提了一个没用的选项"
+> 这类缺陷在断言里根本不可见。
 
 **变异编译通过是常态,不是例外。** 可选参数(`IReadOnlyList<int> x = null`)删掉实参照样编译,结果静默变空。**构建绿在这里等于没验证。**
 
@@ -161,12 +194,14 @@ git diff <上一轮的提交>..HEAD
 4. 我新引入的每个名字,在作用域里唯一吗?(外层 `var matches`,内层循环里早有一个 → CS0136)
 5. 我改掉的每个字符串 / 异常 / 分支,**谁依赖它**?grep 过测试和调用方了吗?
 6. 判定式有没有用计数/长度/存在性代替真正的事实?
-7. 这一轮加的每条测试:走产品入口了吗?断言的是到达的值吗?变异过吗?
-8. 改了行为,**契约三件套**(规则代码 / DTO XML doc / cookbook part)都改了吗?**兄弟成员的 doc** 呢?
-9. 用户可见的文案改了吗?五语资源跟上了吗?
-10. 生成物/跨仓库的配对 PR(语料重发)要不要跟着动?合并顺序对吗?
-11. 回帖里每句证据对应哪一级?范围行写了吗?
-12. 要 resolve 的每一条,症状真的没了吗?
+7. **这一轮我写下的每一句辩解(注释 / 提交信息 / 自审表),都跑过攻击它的那条命令了吗?**
+8. 行为改了,**描述这个行为的那句话**跟着改了吗?(这次:卡片改成问楼层,提示语还写着"说出楼栋和楼层")
+9. 这一轮加的每条测试:走产品入口了吗?断言的是到达的值吗?**它打印的每个字段都断言了吗?**变异过吗?
+10. 改了行为,**契约三件套**(规则代码 / DTO XML doc / cookbook part)都改了吗?**兄弟成员的 doc** 呢?
+11. 用户可见的文案改了吗?五语资源跟上了吗?
+12. 生成物/跨仓库的配对 PR(语料重发)要不要跟着动?合并顺序对吗?
+13. 回帖里每句证据对应哪一级?范围行写了吗?
+14. 要 resolve 的每一条,症状真的没了吗?
 
 **一个 finding 一个提交**,提交信息写"行为变成了什么",不写 comment 编号——否则第 0 步那个 `git diff` 没有边界可用。
 
