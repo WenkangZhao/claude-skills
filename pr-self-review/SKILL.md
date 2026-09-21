@@ -9,7 +9,9 @@ description: >-
   table with severities instead of a feeling of readiness. Also governs how to fix review
   comments without breeding the next round: triage into four tiers, minimal change, no
   "longer-term" suggestions, reply-and-decline explicitly. Make sure to use this even when
-  the user only says "push it" or "fix the comments".
+  the user only says "push it" or "fix the comments". 中文触发同样适用:"推一下"、"发个 PR"、
+  "可以推了吗"、"先自己 review 一下"、"这些 comment 哪些是真的"、"为什么评审找得到我们找不到"、
+  "改动有没有问题"。定级和校准用 `review-standard`。
 ---
 
 # 像外部评审一样审自己的 PR

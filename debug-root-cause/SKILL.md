@@ -8,6 +8,8 @@ description: >-
   from "it was already broken", and ends with a minimal fix pinned by a test that goes red
   when the fix is reverted. Use it even when the user only says "fix this" or "看看这个
   报错" - especially then, because the tempting first guess is what costs the afternoon.
+  证出原因之后**不要直接开修**:交给 `fix-design` 决定修复的形状(枚举每条路、找到代码能强制
+  执行意图的那道缝、一个前门一行),否则只会修好 QE 恰好踩到的那一格。
 ---
 
 # Debug by proving the mechanism, not by pattern-matching the symptom
