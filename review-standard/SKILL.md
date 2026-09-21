@@ -313,6 +313,8 @@ diff 里每一行 new 一个类型、调一个方法、订阅一个事件、注�
 |---|---|---|
 | 任何 C#(桌面版、BLL、SDK、测试) | **`CSHARP.md`** | 大括号、`Assert.That`、`.cs` 的 BOM+CRLF、`global using`、命名,以及我们自己那十条已确立的约定 |
 | 新公共类型、跨程序集引用、限界上下文 | **`ARCHITECTURE.md`** | 外部消费方表、放一个新类型、port 谁实现谁消费、什么算泄漏 |
+| 参数/依赖/接口的**形状** | **`DESIGN.md`** | 参数收窄、assert vs throw、单实现 port、构造注入、遍历前快照 |
+| 重新实现一条 legacy 路径(抽取/迁移/合并) | `extraction-review` | 整链对齐、守卫并集、见证者在契约外、零引用门 |
 | Sidekick 语料 / 工具描述 / skill 文本 | `sidekick-verify` | 模型会读的东西,**读过并照做之前都不算验证过** |
 | QE 报的 bug | `fix-design` | 修复的形状:枚举每条路、找到那道缝、一个前门一行 |
 
