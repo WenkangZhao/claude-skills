@@ -102,6 +102,9 @@ git grep -n "<名字>" origin/<source> -- '*.cs'
 
 ### 5. 定级
 
+**定级、校准和"不要提什么"以 `review-standard` 为准**,它和 `pr-self-review` 共用同一把尺子,
+而且是 ADO 上那个自动评审 agent 判我们 PR 时读的同一套标准。下面这张表是它的摘要。
+
 档位定义以 `REVIEW.md` 第 1 节为准（五档，不得自造别的标签）。下面是它在本仓库的具体落点：
 
 | 标记 | REVIEW.md 定义 | 本仓库的典型情形 |

@@ -1,69 +1,75 @@
-# 🛠️ Code Review Execution Instructions (Five-Tier Schema)
+# 定级与评论格式
 
-> **Role & Tone**: 
-> You are a world-class, extremely rigorous senior software architect and security auditor. Your goal is to critically analyze the incoming code changes (diff) against the codebase, completely eliminating "polite praises". Focus entirely on discovering potential runtime failures, security leaks, edge-case regressions, and architectural erosion.
+`pr-review`(审别人)和 `pr-self-review`(审自己)共用这一份。
 
----
+> **定级、校准、以及"不该提什么",以 `review-standard` 为准。** 这里不重复那份标准,只放
+> 两件属于本仓库的东西:**排除清单**和**发到 ADO 上的评论格式**。
+>
+> 上一版这个文件带的是一套通用 web 栈模板(SQL 注入、`@Transactional`、N+1 数据库查询、
+> `package-lock.json`),和我们的栈、我们实际发的评论格式、以及自动评审读的那套标准三处都对不上。
 
-## 🛑 1. Severity Level Definitions (Must Enforce)
+## 1. 严重度(摘要,权威在 `review-standard`)
 
-You must categorize every discovered issue strictly into one of the following 5 levels. Do not use any other labels.
+| 级别 | 含义 | 合并前必须修? |
+|---|---|---|
+| **BLOCKER** | 正确性 bug、数据丢失、安全漏洞、崩溃 | 是 |
+| **CRITICAL** | 严重性能/内存问题、错误处理坏掉、核心逻辑无测试 | 是 |
+| **MAJOR** | 违反已确立的设计原则、命名差、危险的并发写法 | 强烈建议 |
+| **MINOR** | 风格不一致、小的可读性问题、可改进点 | 有更好 |
+| **NIT** | 纯偏好、纯外观。**一次最多 5 条**,多的只报个数 | 作者自己定 |
 
-### 🔴 BLOCKER (Must Fix - Production Hazard)
-*   **Definition**: Fatal issues that will crash the application in production, breach data security, or prevent backward compatibility/rollback.
-*   **Trigger Scenarios**:
-    *   **Security**: Unauthenticated API routes; Direct SQL Injection vulnerabilities; hardcoded secrets/tokens/keys; exposing PII (emails, passwords, phone numbers) in logs.
-    *   **Stability**: Known deadlock patterns in multi-threading; unhandled exceptions in background threads causing process termination; infinite loops.
-    *   **Database**: Destructive database migrations that are not backward compatible (breaking zero-downtime deployment).
+**没有 PRAISE 这一级,也没有"做得好的地方"一节。** 只写发现。
 
-### 🟠 CRITICAL (Must Fix - Functional/Logic Defect)
-*   **Definition**: Severe bugs where the business logic is explicitly broken, incorrect data is statefully persisted, or major edge cases are ignored.
-*   **Trigger Scenarios**:
-    *   **Logic Errors**: Off-by-one errors in loops; incorrect state machine transitions; improper handling of null/undefined leading to potential NullPointerExceptions.
-    *   **Data Integrity**: Lack of transactional integrity (e.g., missing `@Transactional` or explicit rollbacks) in multi-step mutations; financial or balance calculations with rounding errors.
-    *   **API/Contract**: Breaking existing public API responses or changing required DTO fields without proper versioning.
+三条最常用错的校准(全部见 `review-standard`):既有问题**降一级**;需要不寻常条件的理论问题
+**降一级**(除非代码库自己没约束掉那个场景);**新的非平凡逻辑没有测试 = CRITICAL**,而只是搬了
+位置的逻辑没测试 = MINOR。
 
-### 🟡 MAJOR (Highly Recommended - Architectural & Performance Violations)
-*   **Definition**: Bad practices that degrade system maintainability, introduce high technical debt, or cause performance degradation under load.
-*   **Trigger Scenarios**:
-    *   **Performance**: N+1 query patterns; missing database indexes on fields heavily queried in the diff; memory leaks (e.g., unclosed streams, lingering event listeners).
-    *   **Architecture**: Explicit violation of SOLID principles; circular dependencies; mixing business logic directly into the controller/routing layer.
-    *   **Robustness**: Hardcoded system timeouts or completely missing retry/fallback mechanisms for unstable external 3rd-party HTTP calls.
+## 2. 排除清单(不要评的)
 
-### 🔵 MINOR (Optional - Code Quality & Readability)
-*   **Definition**: Code smells, redundant logic, or overly complex implementations that do not break functionality but hurt readability.
-*   **Trigger Scenarios**:
-    *   Extremely high cyclomatic complexity (too many nested `if-else` or `try-catch` blocks).
-    *   Redundant or dead code that can be safely deleted; suboptimal usage of standard library methods.
-    *   Misleading or ambiguous naming variables/functions that significantly slow down code comprehension for team members.
+1. **格式/风格**:linter 或格式化工具自动管的东西(空格、括号、缩进),以及项目没有确立成约定的
+   风格偏好。
+2. **生成物**:`dist/`、`build/`、`generated/`、锁文件。**例外**:如果生成物**过期了**——它描述
+   的还是更早的一版命令面——那是一条真发现,而且是最容易被漏的一类(`review-standard` 第 10 条)。
+3. **测试代码**可以违反生产规则(硬编码的桩输入)。只在测试本身逻辑错了、不确定(flaky)、或者
+   **撤掉修复它照样绿**时才提。
+4. **"我会用另一种写法"**,却没有具体改进;**已经很直白的代码**还要求再抽象;**显而易见的代码**
+   要求补文档。
 
-### 🟢 NIT (Style & Conventions)
-*   **Definition**: Purely cosmetic items, formatting discrepancies, missing comments on complex hacks, or alternative syntax preferences.
-*   **Volume Cap**: Report **at most 5 Nits** inline per review session. If you find more, list only the count in the summary section to reduce code review fatigue.
+## 3. 发到 ADO 的评论格式
 
----
-
-## 🚫 2. Exclusion Rules (Do Not Review)
-
-To keep reviews highly actionable, **IMMEDIATELY IGNORE** the following to eliminate noise:
-1.  **Format/Style**: Anything that standard linters (ESLint, Prettier, SonarQube, Checkstyle, Black) automatically enforce. Do not comment on spaces, brackets, or indentation.
-2.  **Generated Code**: Do not audit files under `dist/`, `build/`, `generated/`, or vendor dependency lockfiles (e.g., `package-lock.json`, `go.sum`, `Cargo.lock`).
-3.  **Test Scope**: Test files (`*.test.*`, `*Test.java`) are allowed to break strict production rules (e.g., using hardcoded test mock inputs). Only flag them if the tests themselves are mathematically broken or non-deterministic (flaky).
-
----
-
-## 📝 3. Output Format Requirements
-
-Every comment posted inline must follow this identical structural archetype:
+归档的评审文件里**不带 emoji**(纯文本标签才搜得到);**发到 PR 上的评论**在严重度词前面带一个
+图标,词本身不变,这样人能在一堆线程里扫得动。
 
 ```text
-**[SEVERITY_LEVEL]** Brief Title
-*   **Root Cause & Risk**: Explain why the code fails. Provide a step-by-step trace of how this fails under edge cases or concurrent load.
-*   **Refactoring Plan**:
-    ```before
-    // Paste the exact flawed code snippet
-    ```
-    ```after
-    // Provide the clean, production-ready, safe fix
-    ```
+**🟠 CRITICAL — 一句话说清缺陷。**
+
+**Evidence.** file:line,引用代码,说明两处如何不一致。
+
+**Failure scenario.** 具体输入 → 具体错误输出(带数值)。
+
+**Fix.** 最小修法;需要的测试一句话。
 ```
+
+图标:🔴 BLOCKER · 🟠 CRITICAL · 🟡 MAJOR · 🔵 MINOR · 🟢 NIT
+
+**写不出 Failure scenario 的不是发现。** 具体输入 → 具体错误输出,没有这一段就别发。
+
+## 4. 总结线程
+
+```text
+## Review summary
+**Verdict: approve / approve with minor comments / request changes / reject.**
+N CRITICAL · N MAJOR · N MINOR;已有线程 X、Y 仍然成立,不重复。
+Reviewed against merge base <sha>, all N files, with the callers behind them: <关键调用方>。
+
+| # | Severity | Finding | Where |
+
+**Not verified.** 读了但没跑的、复现不了的、以及为什么。
+**Order.** 建议修复顺序,哪条的测试顺便补了哪个缺口。
+```
+
+**一个 verdict,不是四个空框。** 选一个,一句话说为什么。
+
+**"Not verified" 不是道歉,是范围声明**——读者需要知道"模块 X 没有发现"是"干净"还是"根本没打开"。
+
+**先说 verdict 和计数,再说发现。永远不要以"这个改动做对了什么"开头。**
